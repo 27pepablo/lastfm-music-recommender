@@ -115,8 +115,14 @@ def canonical_artists(plays: pd.DataFrame) -> tuple[np.ndarray, pd.DataFrame]:
         .drop_duplicates("norm")
         .set_index("norm")["artist_mbid"]
     )
-    fallback = pairs["norm"].map(best_id_for_name).fillna("name:" + pairs["norm"])
-    pairs["key"] = pairs["artist_mbid"].fillna(fallback)
+    # Plain Python strings here: when no row has an id at all, the id column has no
+    # string type to speak of, and filling it with names fails on recent pandas.
+    id_for_name = best_id_for_name.to_dict()
+    ids, norms = pairs["artist_mbid"].astype(object), pairs["norm"].astype(object)
+    pairs["key"] = [
+        mbid if isinstance(mbid, str) else id_for_name.get(norm, "name:" + norm)
+        for mbid, norm in zip(ids, norms, strict=True)
+    ]
 
     # Display name of an artist: its most common spelling.
     display = (
