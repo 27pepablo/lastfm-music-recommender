@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check src tests scripts
+      - run: pytest -q
+      - name: Run the whole pipeline on synthetic data
+        run: |
+          python scripts/00_make_synthetic_data.py --out demo/data
+          python scripts/02_tune.py --data demo/data --out demo/results/tuning.csv --trials 3
+          python scripts/03_evaluate.py --data demo/data --results demo/results --seeds 1
+          python scripts/04_figures.py --data demo/data --results demo/results --out demo/figures
